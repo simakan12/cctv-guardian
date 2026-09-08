@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pemberitahuan - CCTV Guardian</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo"><span class="logo-icon">📹</span><span class="logo-text">CCTV Guardian</span></div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item"><span class="nav-icon">🏠</span><span class="nav-text">Dashboard</span></a>
+                <a href="/cameras" class="nav-item"><span class="nav-icon">📷</span><span class="nav-text">Kamera</span></a>
+                <a href="/recordings" class="nav-item"><span class="nav-icon">🎬</span><span class="nav-text">Rekaman</span></a>
+                <a href="/alerts" class="nav-item active"><span class="nav-icon">🔔</span><span class="nav-text">Pemberitahuan</span></a>
+                <a href="/settings" class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-text">Pengaturan</span></a>
+                <a href="/users" class="nav-item"><span class="nav-icon">👥</span><span class="nav-text">Pengguna</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info"><div class="user-avatar">👤</div>
+                <div class="user-details"><div class="user-name">Admin</div><div class="user-role">Administrator</div></div></div>
+                <button class="btn-logout" onclick="logout()">Keluar</button>
+            </div>
+        </aside>
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left"><h1>Pemberitahuan</h1><span class="breadcrumb">Beranda / Pemberitahuan</span></div>
+            </header>
+            <div class="content">
+                <div class="section-header-row">
+                    <h2>Daftar Pemberitahuan</h2>
+                </div>
+                <div class="alerts-list" id="alertsList"><div class="loading-state">Memuat...</div></div>
+            </div>
+        </main>
+    </div>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="/static/js/app.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        await checkAuth();
+        loadAlerts();
+    });
+    async function loadAlerts() {
+        const list = document.getElementById('alertsList');
+        try {
+            const res = await fetch('/api/alerts');
+            const alerts = await res.json();
+            if (alerts.length === 0) {
+                list.innerHTML = '<div class="empty-state">Tidak ada pemberitahuan</div>';
+                return;
+            }
+            list.innerHTML = alerts.map(a => {
+                const icon = a.alert_type.includes('person') ? '🚨' :
+                    a.alert_type.includes('vehicle') ? '🚗' : '🔄';
+                const typeLabel = a.alert_type.replace(/_/g, ' ').toUpperCase();
+                const time = new Date(a.timestamp).toLocaleString('id-ID');
+                const statusClass = a.read ? 'read' : 'unread';
+                const statusText = a.read ? '○ Dibaca' : '● Belum Dibaca';
+                return `<div class="alert-card ${a.read ? 'read' : 'unread'} alert-${a.alert_type}">
+                    <div class="alert-card-header">
+                        <div class="alert-type-badge ${a.alert_type}">${icon} ${typeLabel}</div>
+                        <div class="alert-time">${time}</div>
+                    </div>
+                    <div class="alert-card-body">
+                        <div class="alert-message">${a.message || ''}</div>
+                        <div class="alert-camera">Kamera: ${a.camera_name || 'Unknown'} #${a.camera_id}</div>
+                    </div>
+                    <div class="alert-card-footer">
+                        <span class="alert-status ${statusClass}">${statusText}</span>
+                        <div class="alert-actions">
+                            <button class="btn btn-sm btn-outline" onclick="acknowledgeAlert(${a.id})" ${a.acknowledged ? 'disabled' : ''}>✓ Acknowledge</button>
+                            <button class="btn btn-sm btn-outline" onclick="markAlertRead(${a.id})" ${a.read ? 'disabled' : ''}>Baca</button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (err) {
+            list.innerHTML = '<div class="empty-state">Gagal memuat pemberitahuan</div>';
+            showToast('Gagal memuat pemberitahuan', 'error');
+        }
+    }
+    async function acknowledgeAlert(id) {
+        try {
+            const res = await fetch(`/api/alerts/${id}/acknowledge`, {method:'POST'});
+            if (res.ok) { showToast('Pemberitahuan di-acknowledge', 'success'); loadAlerts(); }
+            else showToast('Gagal acknowledge', 'error');
+        } catch (err) { showToast('Gagal acknowledge', 'error'); }
+    }
+    async function markAlertRead(id) {
+        try {
+            const res = await fetch(`/api/alerts/${id}/read`, {method:'POST'});
+            if (res.ok) { showToast('Pemberitahuan ditandai sudah dibaca', 'success'); loadAlerts(); }
+            else showToast('Gagal tandai dibaca', 'error');
+        } catch (err) { showToast('Gagal tandai dibaca', 'error'); }
+    }
+    async function logout() {
+        await fetch('/api/auth/logout', {method:'POST'});
+        document.cookie = 'auth_token=; path=/; max-age=0';
+        window.location.href = '/';
+    }
+    </script>
+</body>
+</html>

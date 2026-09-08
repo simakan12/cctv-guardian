@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengaturan - CCTV Guardian</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo"><span class="logo-icon">📹</span><span class="logo-text">CCTV Guardian</span></div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item"><span class="nav-icon">🏠</span><span class="nav-text">Dashboard</span></a>
+                <a href="/cameras" class="nav-item"><span class="nav-icon">📷</span><span class="nav-text">Kamera</span></a>
+                <a href="/recordings" class="nav-item"><span class="nav-icon">🎬</span><span class="nav-text">Rekaman</span></a>
+                <a href="/alerts" class="nav-item"><span class="nav-icon">🔔</span><span class="nav-text">Pemberitahuan</span></a>
+                <a href="/settings" class="nav-item active"><span class="nav-icon">⚙️</span><span class="nav-text">Pengaturan</span></a>
+                <a href="/users" class="nav-item"><span class="nav-icon">👥</span><span class="nav-text">Pengguna</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info"><div class="user-avatar">👤</div>
+                <div class="user-details"><div class="user-name">Admin</div><div class="user-role">Administrator</div></div></div>
+                <button class="btn-logout" onclick="logout()">Keluar</button>
+            </div>
+        </aside>
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left"><h1>Pengaturan</h1><span class="breadcrumb">Beranda / Pengaturan</span></div>
+            </header>
+            <div class="content">
+                <div class="settings-container">
+
+                    <!-- DETECTION -->
+                    <div class="settings-section">
+                        <h3>🔍 Pengaturan Deteksi</h3>
+                        <div class="settings-group">
+                            <div class="setting-row">
+                                <div><div class="setting-label">Aktifkan Deteksi</div><div class="setting-desc">Nyalakan/matikan sistem deteksi secara keseluruhan</div></div>
+                                <div class="setting-control"><div class="toggle-switch" id="toggleDetection" onclick="toggleSet('DETECTION_ENABLED', this.classList.toggle('active'))"></div></div>
+                            </div>
+                            <div class="setting-row">
+                                <div><div class="setting-label">Model YOLO</div><div class="setting-desc">Pilih model YOLO: yolov8n (cepat), yolov8s (sedang), yolov8m (akurat)</div></div>
+                                <div class="setting-control"><select id="setModelType" class="form-select" onchange="saveSet('DETECTION_MODEL_TYPE', this.value)"><option value="yolov8n">yolov8n (Cepat)</option><option value="yolov8s">yolov8s (Sedang)</option><option value="yolov8m">yolov8m (Akurat)</option></select></div>
+                            </div>
+                            <div class="setting-row">
+                                <div><div class="setting-label">Threshold Confidence</div><div class="setting-desc">Minimum confidence (0.0-1.0). Semakin tinggi semakin ketat</div></div>
+                                <div class="setting-control"><input type="range" id="setConfThreshold" min="0" max="1" step="0.05" value="0.5" oninput="document.getElementById('confVal').textContent=this.value; saveSet('DETECTION_CONFIDENCE_THRESHOLD', this.value)"><span id="confVal">0.50</span></div>
+                            </div>
+                            <div class="setting-row">
+                                <div><div class="setting-label">Interval Deteksi (detik)</div><div class="setting-desc">Interval antara setiap deteksi. 1 = tiap detik, 5 = tiap 5 detik</div></div>
+                                <div class="setting-control"><input type="number" id="setDetectInterval" class="form-input" value="2" min="1" max="60" onchange="saveSet('DETECTION_INTERVAL', this.value)"></div>
+                            </div>
+                            <div class="setting-divider"></div>
+                            <div class="setting-row">
+                                <div><div class="setting-label">Deteksi Manusia</div><div class="setting-desc">Aktifkan deteksi manusia (kelas person)</div></div>
+                                <div class="setting-control"><div class="toggle-switch" id="togglePerson" onclick="toggleSet('DETECTION_PERSON_ENABLE', this.classList.toggle('active'))"></div></div>
+                            </div>
+                            <div class="setting-row">
+                                <div><div class="setting-label">Deteksi Kendaraan</div><div class="setting-desc">Aktifkan deteksi kendaraan (mobil, motor, bus, truk)</div></div>
+                                <div class="setting-control"><div class="toggle-switch" id="toggleVehicle" onclick="toggleSet('DETECTION_VEHICLE_ENABLE', this.classList.toggle('active'))"></div></div>
+                            </div>
+                            <div class="setting-row">
+                                <div><div class="setting-label">Deteksi Gerakan</div><div class="setting-desc">Aktifkan deteksi gerakan (Perubahan Laplacian)</div></div>
+                                <div class="setting-control"><div class="toggle-switch" id="toggleMotion" onclick="toggleSet('DETECTION_MOTION_ENABLE', this.classList.toggle('active'))"></div></div>
+                            </div>
+                            <div class="setting-row">
+                                <div><div class="setting-label">Motion Threshold</div><div class="setting-desc">Threshold Laplacian variance. Semakin tinggi semakin sensitif</div></div>
+                                <div class="setting-control"><input type="number" id="setMotionThreshold" class="form-input" value="100" min="10" max="10000" onchange="saveSet('MOTION_THRESHOLD', this.value)"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RECORDING -->
+                    <div class="settings-section">
+                        <h3>🎬 Pengaturan Rekaman</h3>
+                        <div class="settings-group">
+                            <div class="setting-row">
+                                <div><div class="setting-label">Mode Rekaman</div><div class="setting-desc">24 Jam (Continuous) atau Hanya saat Motion (Motion Triggered)</div></div>
+                                <div class="setting-control"><select id="setRecMode" class="form-select" onchange="saveSet('RECORDING_MODE', this.value)"><option value="CONTINUOUS">24 Jam (Continuous)</option><option value="MOTION_TRIGGERED">Motion Triggered</option></select></div>
+                            </div>
+                            <div class="setting-row">
+                                <div><div class="setting-label">Durasi Rekaman Motion (detik)</div><div class="setting-desc">Berapa lama merekam setelah motion terdeteksi (hanya untuk mode Motion Triggered)</div></div>
+                                <div class="setting-control"><input type="number" id="setMotionRecDur" class="form-input" value="30" min="5" max="3600" onchange="saveSet('MOTION_RECORD_DURATION', this.value)"></div>
+                            </div>
+                            <div class="setting-row">
+                                <div><div class="setting-label">Cooldown Motion (detik)</div><div class="setting-desc">Jeda antar rekaman motion. Mencegah rekaman berulang</div></div>
+                                <div class="setting-control"><input type="number" id="setMotionCooldown" class="form-input" value="60" min="5" max="86400" onchange="saveSet('MOTION_COOLDOWN', this.value)"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CLOUD -->
+                    <div class="settings-section">
+                        <h3>☁️ Penyimpanan Cloud</h3>
+                        <div class="settings-group">
+                            <div class="setting-row">
+                                <div><div class="setting-label">Aktifkan Upload Cloud</div><div class="setting-desc">Upload rekaman ke cloud otomatis</div></div>
+                                <div class="setting-control"><div class="toggle-switch" id="toggleCloud" onclick="toggleSet('CLOUD_UPLOAD_ENABLED', this.classList.toggle('active')); updateGDriveFields();"></div></div>
+                            </div>
+                            <div class="setting-row">
+                                <div><div class="setting-label">Provider Cloud</div><div class="setting-desc">Pilih provider cloud untuk upload rekaman</div></div>
+                                <div class="setting-control"><select id="setCloudProv" class="form-select" onchange="saveSet('CLOUD_PROVIDER', this.value); updateGDriveFields();"><option value="none">None (Penyimpanan Lokal Only)</option><option value="googledrive">Google Drive</option><option value="s3">Amazon S3 / S3 Compatible</option><option value="nextcloud">Nextcloud</option></select></div>
+                            </div>
+                            <div id="gdriveCredentials" style="display:none;">
+                                <div class="setting-divider"></div>
+                                <div class="form-group"><label>Client ID</label><input type="text" id="setGDriveCID" value="" placeholder="xxx.apps.googleusercontent.com" onchange="saveSet('GOOGLE_DRIVE_CLIENT_ID', this.value)" class="form-input"></div>
+                                <div class="form-group"><label>Client Secret</label><input type="password" id="setGDriveCS" value="" placeholder="••••••••" onchange="saveSet('GOOGLE_DRIVE_CLIENT_SECRET', this.value)" class="form-input"></div>
+                                <div class="form-group"><label>Refresh Token</label><input type="password" id="setGDriveRT" value="" placeholder="1//0e..." onchange="saveSet('GOOGLE_DRIVE_REFRESH_TOKEN', this.value)" class="form-input"><div class="setting-desc">Dari OAuth consent screen. <a href="https://developers.google.com/drive/api/guides/about-auth" target="_blank" style="color:#3498db;">Cara dapatkan →</a></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TELEGRAM -->
+                    <div class="settings-section">
+                        <h3>💬 Telegram Bot</h3>
+                        <div class="settings-group">
+                            <div class="setting-row">
+                                <div><div class="setting-label">Aktifkan Notifikasi Telegram</div><div class="setting-desc">Kirim notifikasi ke Telegram saat ada deteksi</div></div>
+                                <div class="setting-control"><div class="toggle-switch" id="toggleTelegram" onclick="toggleSet('TELEGRAM_ENABLED', this.classList.toggle('active'))"></div></div>
+                            </div>
+                            <div class="form-group"><label>Bot Token</label><input type="password" id="setTGToken" value="" placeholder="1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ" onchange="saveSet('TELEGRAM_BOT_TOKEN', this.value)" class="form-input"><div class="setting-desc">Dari @BotFather. Buat bot baru di <a href="https://t.me/BotFather" target="_blank" style="color:#3498db;">@BotFather</a></div></div>
+                            <div class="form-group"><label>Chat ID</label><input type="text" id="setTGCHat" value="" placeholder="-123456789" onchange="saveSet('TELEGRAM_CHAT_ID', this.value)" class="form-input"><div class="setting-desc">Chat ID tujuan notifikasi. Kirim pesan ke bot dan cek log untuk mendapatkan chat ID Anda.</div></div>
+                        </div>
+                    </div>
+
+                    <!-- EMAIL -->
+                    <div class="settings-section">
+                        <h3>📧 Email Notifikasi</h3>
+                        <div class="settings-group">
+                            <div class="setting-row">
+                                <div><div class="setting-label">Aktifkan Email</div><div class="setting-desc">Kirim notifikasi via email</div></div>
+                                <div class="setting-control"><div class="toggle-switch" id="toggleEmail" onclick="toggleSet('EMAIL_ENABLED', this.classList.toggle('active'))"></div></div>
+                            </div>
+                            <div class="form-group"><label>SMTP Server</label><input type="text" id="setSMTP" value="smtp.gmail.com" onchange="saveSet('EMAIL_SMTP', this.value)" class="form-input"></div>
+                            <div class="form-group"><label>Port</label><input type="number" id="setSMTPPort" value="587" onchange="saveSet('EMAIL_SMTP_PORT', this.value)" class="form-input"></div>
+                            <div class="form-group"><label>Username</label><input type="text" id="setEmailUser" value="" onchange="saveSet('EMAIL_USERNAME', this.value)" class="form-input"></div>
+                            <div class="form-group"><label>Password (App Password)</label><input type="password" id="setEmailPass" value="" onchange="saveSet('EMAIL_PASSWORD', this.value)" class="form-input"></div>
+                            <div class="form-group"><label>Email Tujuan</label><input type="email" id="setEmailTo" value="" onchange="saveSet('EMAIL_RECIPIENT', this.value)" class="form-input"></div>
+                        </div>
+                    </div>
+
+                    <!-- STORAGE -->
+                    <div class="settings-section">
+                        <h3>💾 Penyimpanan Lokal</h3>
+                        <div class="settings-group">
+                            <div class="setting-row">
+                                <div><div class="setting-label">Path Rekaman</div><div class="setting-desc">Lokasi penyimpanan rekaman di server</div></div>
+                                <div class="setting-control"><input type="text" id="setSavePath" value="/opt/cctv-guardian/recordings" onchange="saveSet('LOCAL_SAVE_PATH', this.value)" class="form-input"></div>
+                            </div>
+                            <div class="setting-row">
+                                <div><div class="setting-label">Maksimum Storage (GB)</div><div class="setting-desc">Maksimum storage yang digunakan. Rekaman lama dihapus otomatis jika melebihi threshold</div></div>
+                                <div class="setting-control"><input type="number" id="setMaxStorage" class="form-input" value="50" min="1" max="9999" onchange="saveSet('MAX_LOCAL_STORAGE_GB', this.value)"></div>
+                            </div>
+                            <div class="storage-usage-bar">
+                                <div class="storage-label"><span>Penggunaan Storage saat ini</span><span id="storagePercent">0%</span></div>
+                                <div class="storage-bar-bg"><div class="storage-bar-fill" id="storageBarFill" style="width:0%"></div></div>
+                                <div class="storage-info"><span id="storageUsed">0 GB</span> / <span id="storageTotal">50 GB</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="/static/js/app.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        await checkAuth();
+        await loadSettings();
+        updateStorageBar();
+        updateGDriveFields();
+        setInterval(updateStorageBar, 30000);
+        document.getElementById('setCloudProv').addEventListener('change', updateGDriveFields);
+    });
+    function updateGDriveFields() {
+        const prov = document.getElementById('setCloudProv').value;
+        const gdriveDiv = document.getElementById('gdriveCredentials');
+        if (gdriveDiv) gdriveDiv.style.display = (prov === 'googledrive') ? 'block' : 'none';
+        const provStatus = document.getElementById('cloudProviderStatus');
+        if (provStatus) provStatus.textContent = prov === 'googledrive' ? '🟢 Google Drive' : '🔴 None / Other';
+    }
+    async function logout() {
+        await fetch('/api/auth/logout', {method:'POST'});
+        document.cookie = 'auth_token=; path=/; max-age=0';
+        window.location.href = '/';
+    }
+    </script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekaman - CCTV Guardian</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo"><span class="logo-icon">📹</span><span class="logo-text">CCTV Guardian</span></div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item"><span class="nav-icon">🏠</span><span class="nav-text">Dashboard</span></a>
+                <a href="/cameras" class="nav-item"><span class="nav-icon">📷</span><span class="nav-text">Kamera</span></a>
+                <a href="/recordings" class="nav-item active"><span class="nav-icon">🎬</span><span class="nav-text">Rekaman</span></a>
+                <a href="/alerts" class="nav-item"><span class="nav-icon">🔔</span><span class="nav-text">Pemberitahuan</span></a>
+                <a href="/settings" class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-text">Pengaturan</span></a>
+                <a href="/users" class="nav-item"><span class="nav-icon">👥</span><span class="nav-text">Pengguna</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info"><div class="user-avatar">👤</div>
+                <div class="user-details"><div class="user-name">Admin</div><div class="user-role">Administrator</div></div></div>
+                <button class="btn-logout" onclick="logout()">Keluar</button>
+            </div>
+        </aside>
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left"><h1>Rekaman</h1><span class="breadcrumb">Beranda / Rekaman</span></div>
+            </header>
+            <div class="content">
+                <div class="section-header-row">
+                    <h2>Daftar Rekaman</h2>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead><tr>
+                            <th>ID</th><th>Kamera</th><th>Mulai</th><th>Selesai</th>
+                            <th>Durasi</th><th>Ukuran</th><th>Tipe</th><th>Cloud</th><th>Action</th>
+                        </tr></thead>
+                        <tbody id="recordingsBody"><tr><td colspan="9" class="empty-row">Memuat...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+    <div id="videoModal" class="modal" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Rekaman</h3>
+                <button class="modal-close" onclick="closeVideoModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <video id="videoPlayer" controls width="100%"></video>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="downloadRecording()">⬇ Download MP4</button>
+                <button class="btn btn-outline" onclick="closeVideoModal()">Tutup</button>
+            </div>
+        </div>
+    </div>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="/static/js/app.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        await checkAuth();
+        loadRecordings();
+    });
+    async function loadRecordings() {
+        const tbody = document.getElementById('recordingsBody');
+        try {
+            const res = await fetch('/api/recordings');
+            const recs = await res.json();
+            if (recs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="empty-row">Belum ada rekaman</td></tr>';
+                return;
+            }
+            tbody.innerHTML = recs.map(r => {
+                const start = new Date(r.start_time);
+                const end = r.end_time ? new Date(r.end_time) : null;
+                const dur = r.duration_seconds ? formatDuration(r.duration_seconds) : '-';
+                const size = r.file_size_mb ? r.file_size_mb.toFixed(1)+' MB' : '-';
+                const cloudStatus = r.uploaded ? '✅ Uploaded' :
+                    (r.cloud_path ? '☁️ Pending' : '💾 Local');
+                const playDisabled = !r.file_path ? 'disabled' : '';
+                const dlDisabled = !r.file_path ? 'disabled' : '';
+                return `<tr>
+                    <td>${r.id}</td>
+                    <td>${r.camera_name || 'Unknown'}</td>
+                    <td title="${r.start_time}">${start.toLocaleString('id-ID')}</td>
+                    <td title="${r.end_time}">${end ? end.toLocaleString('id-ID') : '-'}</td>
+                    <td>${dur}</td>
+                    <td>${size}</td>
+                    <td><span class="storage-badge ${r.storage_type}">${r.storage_type}</span></td>
+                    <td>${r.uploaded ? '<span class="status-badge status-uploaded">✅ Uploaded</span>' : (r.cloud_path ? '<span class="status-badge status-cloud-pending">☁️ Pending</span>' : '<span class="status-badge status-local">💾 Local</span>')}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="playRecording(${r.id}, '${r.camera_name || ''}')" ${playDisabled}>▶ Putar</button>
+                        <button class="btn btn-sm btn-outline" onclick="downloadRecordingFile(${r.id})" ${dlDisabled}>⬇ Download</button>
+                        ${r.cloud_path ? `<a href="${r.cloud_path}" target="_blank" class="btn btn-sm btn-outline">☁️ Open Cloud</a>` : '<button class="btn btn-sm btn-outline" onclick="uploadToCloud('+r.id+')">☁️ Upload</button>'}
+                        <button class="btn btn-sm btn-danger" onclick="deleteRecording(${r.id})">🗑</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-row">Gagal memuat rekaman</td></tr>';
+            showToast('Gagal memuat rekaman', 'error');
+        }
+    }
+    function formatDuration(sec) {
+        const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+        return h>0 ? `${h}h ${m}m ${s}s` : m>0 ? `${m}m ${s}s` : `${s}s`;
+    }
+    let currentRecording = null;
+    function playRecording(id, camName) {
+        currentRecording = { id, camName };
+        const video = document.getElementById('videoPlayer');
+        video.src = `/api/recordings/${id}/stream`;
+        video.play();
+        document.getElementById('modalTitle').textContent = `${camName} - Rekaman`;
+        document.getElementById('videoModal').style.display = 'flex';
+    }
+    async function downloadRecordingFile(id) {
+        try {
+            const res = await fetch(`/api/recordings/${id}`);
+            if (!res.ok) { showToast('Gagal download', 'error'); return; }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `rec_${id}.mp4`; a.click();
+            URL.revokeObjectURL(url);
+            showToast('Download dimulai', 'success');
+        } catch (err) { showToast('Gagal download', 'error'); }
+    }
+    async function uploadToCloud(id) {
+        try {
+            const res = await fetch(`/api/recordings/${id}/upload`, {method:'POST'});
+            const data = await res.json();
+            if (res.ok) { showToast('Upload ke cloud berhasil: '+data.cloud_path, 'success'); loadRecordings(); }
+            else showToast(data.message || 'Gagal upload ke cloud', 'error');
+        } catch (err) { showToast('Gagal upload', 'error'); }
+    }
+    async function deleteRecording(id) {
+        if (!confirm('Hapus rekaman ini? Tindakan ini tidak dapat dibatalkan.')) return;
+        try {
+            const res = await fetch(`/api/recordings/${id}`, {method:'DELETE'});
+            if (res.ok) { showToast('Rekaman berhasil dihapus', 'success'); loadRecordings(); }
+            else showToast('Gagal menghapus rekaman', 'error');
+        } catch (err) { showToast('Gagal menghapus rekaman', 'error'); }
+    }
+    function closeVideoModal() {
+        document.getElementById('videoModal').style.display = 'none';
+        if (currentRecording) {
+            const video = document.getElementById('videoPlayer');
+            video.pause(); video.src = '';
+            currentRecording = null;
+        }
+    }
+    async function downloadRecording() {
+        if (!currentRecording) return;
+        await downloadRecordingFile(currentRecording.id);
+    }
+    async function logout() {
+        await fetch('/api/auth/logout', {method:'POST'});
+        document.cookie = 'auth_token=; path=/; max-age=0';
+        window.location.href = '/';
+    }
+    </script>
+</body>
+</html>

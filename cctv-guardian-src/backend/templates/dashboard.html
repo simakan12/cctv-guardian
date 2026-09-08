@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - CCTV Guardian</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo"><span class="logo-icon">📹</span><span class="logo-text">CCTV Guardian</span></div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item active"><span class="nav-icon">🏠</span><span class="nav-text">Dashboard</span></a>
+                <a href="/cameras" class="nav-item"><span class="nav-icon">📷</span><span class="nav-text">Kamera</span></a>
+                <a href="/recordings" class="nav-item"><span class="nav-icon">🎬</span><span class="nav-text">Rekaman</span></a>
+                <a href="/alerts" class="nav-item"><span class="nav-icon">🔔</span><span class="nav-text">Pemberitahuan</span></a>
+                <a href="/settings" class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-text">Pengaturan</span></a>
+                <a href="/users" class="nav-item"><span class="nav-icon">👥</span><span class="nav-text">Pengguna</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info"><div class="user-avatar">👤</div>
+                <div class="user-details"><div class="user-name" id="userName">Admin</div><div class="user-role" id="userRole">Administrator</div></div></div>
+                <button class="btn-logout" onclick="logout()">Keluar</button>
+            </div>
+        </aside>
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left"><h1>Dashboard</h1><span class="breadcrumb">Beranda / Dashboard</span></div>
+                <div class="topbar-right"><span class="time-display" id="serverTime">--:--:--</span></div>
+            </header>
+            <div class="content">
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-icon" style="background:rgba(52,152,219,0.15);color:#3498db;">📷</div><div class="stat-info"><div class="stat-value" id="statCameras">0</div><div class="stat-label">Total Kamera</div></div></div>
+                    <div class="stat-card"><div class="stat-icon" style="background:rgba(46,204,113,0.15);color:#2ecc71;">🎬</div><div class="stat-info"><div class="stat-value" id="statRecordings">0</div><div class="stat-label">Total Rekaman</div></div></div>
+                    <div class="stat-card"><div class="stat-icon" style="background:rgba(231,76,60,0.15);color:#e74c3c;">🔔</div><div class="stat-info"><div class="stat-value" id="statAlerts">0</div><div class="stat-label">Pemberitahuan Baru</div></div></div>
+                    <div class="stat-card"><div class="stat-icon" style="background:rgba(155,89,182,0.15);color:#9b59b6;">👥</div><div class="stat-info"><div class="stat-value" id="statUsers">0</div><div class="stat-label">Pengguna</div></div></div>
+                </div>
+                <section class="section">
+                    <div class="section-header"><h2>Pemberitahuan Terbaru</h2><a href="/alerts" class="btn btn-sm btn-outline">Lihat Semua</a></div>
+                    <div class="alerts-mini" id="alertsMini"><div class="loading-state">Memuat data...</div></div>
+                </section>
+                <section class="section">
+                    <div class="section-header"><h2>Kamera Aktif</h2><a href="/cameras" class="btn btn-sm btn-outline">Kelola Kamera</a></div>
+                    <div class="camera-grid" id="cameraGrid"><div class="loading-state">Memuat kamera...</div></div>
+                </section>
+            </div>
+        </main>
+    </div>
+    <div id="videoModal" class="modal" style="display:none;">
+        <div class="modal-content modal-video">
+            <div class="modal-header"><h3 id="modalCamName">Kamera</h3><button class="modal-close" onclick="closeVideoModal()">&times;</button></div>
+            <div class="video-container"><img id="videoStream" class="video-stream" alt="Video Stream">
+                <div class="video-overlay" id="videoOverlay" style="display:none;">
+                    <div class="status-badge status-live">● LIVE</div>
+                    <div class="rec-status" id="recStatus" style="display:none;"><span class="status-badge status-recording">● REC</span><span class="rec-timer" id="recTimer">00:00:00</span></div>
+                </div>
+            </div>
+            <div class="video-controls">
+                <button class="btn btn-sm btn-outline" onclick="startRecord()" id="btnRecord">🔴 Rekaman</button>
+                <button class="btn btn-sm btn-outline btn-danger" onclick="stopRecord()" id="btnStopRecord" style="display:none;">⏹ Berhenti</button>
+                <button class="btn btn-sm btn-outline" onclick="detectMotion()">👁 Deteksi</button>
+                <button class="btn btn-sm btn-outline" onclick="closeVideoModal()">Tutup</button>
+            </div>
+        </div>
+    </div>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="/static/js/app.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        await checkAuth();
+        loadDashboard();
+        updateServerTime();
+        setInterval(updateServerTime, 1000);
+    });
+    async function loadDashboard() {
+        try {
+            const [statsRes, alertsRes, camerasRes] = await Promise.all([
+                fetch('/api/stats'),
+                fetch('/api/alerts?limit=5'),
+                fetch('/api/cameras')
+            ]);
+            if (statsRes.ok) {
+                const s = await statsRes.json();
+                document.getElementById('statCameras').textContent = s.total_cameras || 0;
+                document.getElementById('statRecordings').textContent = s.total_recordings || 0;
+                document.getElementById('statAlerts').textContent = s.unread_alerts || 0;
+                document.getElementById('statUsers').textContent = s.total_users || 0;
+            }
+            const alertsEl = document.getElementById('alertsMini');
+            if (alertsRes.ok) {
+                const alerts = await alertsRes.json();
+                alertsEl.innerHTML = alerts.length === 0
+                    ? '<div class="empty-state">Tidak ada pemberitahuan</div>'
+                    : alerts.map(a => {
+                        const icon = a.alert_type.includes('person') ? '🚨' : a.alert_type.includes('vehicle') ? '🚗' : '🔄';
+                        return \`<div class="alert-item alert-\${a.alert_type}">
+                            <div class="alert-icon">\${icon}</div>
+                            <div class="alert-content">
+                                <div class="alert-title">\${a.alert_type.replace(/_/g, ' ').toUpperCase()}</div>
+                                <div class="alert-message">\${a.message || ''}</div>
+                                <div class="alert-time">\${new Date(a.timestamp).toLocaleString('id-ID')}</div>
+                            </div>
+                        </div>\`;
+                    }).join('');
+            }
+            const camerasEl = document.getElementById('cameraGrid');
+            if (camerasRes.ok) {
+                const cameras = await camerasRes.json();
+                camerasEl.innerHTML = cameras.length === 0
+                    ? '<div class="empty-state">Belum ada kamera. <a href="/cameras">Tambah kamera</a></div>'
+                    : cameras.map(c => {
+                        const isActive = c.is_active;
+                        const isRecording = c.is_recording;
+                        return \`<div class="camera-card \${isActive ? 'active' : 'inactive'}" onclick="openCamera(\${c.id}, '\${c.name.replace(/'/g, "\\\\'")}')">
+                            <div class="camera-preview">
+                                <div class="camera-placeholder">
+                                    <span class="camera-icon">📷</span>
+                                    <span class="camera-name">\${c.name}</span>
+                                </div>
+                                <div class="rec-badge \${isRecording ? 'show' : 'hide'}">● REC</div>
+                            </div>
+                            <div class="camera-info">
+                                <div class="camera-title">\${c.name}</div>
+                                <div class="camera-location">\${c.location || '-'}</div>
+                                <div class="camera-status \${isActive ? 'status-active' : 'status-inactive'}">\${isActive ? '● Aktif' : '○ Nonaktif'}</div>
+                            </div>
+                        </div>\`;
+                    }).join('');
+            }
+        } catch (err) {
+            showToast('Gagal memuat dashboard', 'error');
+        }
+    }
+    function updateServerTime() {
+        document.getElementById('serverTime').textContent = new Date().toLocaleTimeString('id-ID');
+    }
+    let cameraWindows = {};
+    async function openCamera(cameraId, cameraName) {
+        const existing = cameraWindows[cameraId];
+        if (existing && !existing.closed) { existing.focus(); return; }
+        document.getElementById('modalCamName').textContent = cameraName;
+        document.getElementById('videoStream').src = \`/api/cameras/\${cameraId}/stream?t=\${Date.now()}\`;
+        document.getElementById('videoModal').style.display = 'flex';
+        document.getElementById('btnRecord').style.display = 'inline-block';
+        document.getElementById('btnStopRecord').style.display = 'none';
+        cameraWindows[cameraId] = { streamUrl: \`/api/cameras/\${cameraId}/stream\` };
+    }
+    function closeVideoModal() {
+        document.getElementById('videoModal').style.display = 'none';
+    }
+    async function startRecord() {
+        const camId = Object.keys(cameraWindows).find(k => cameraWindows[k].streamUrl.includes(k.toString()));
+        try {
+            const res = await fetch('/api/recordings/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({camera_id: parseInt(camId || 1), camera_name: document.getElementById('modalCamName').textContent})
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('btnRecord').style.display = 'none';
+                document.getElementById('btnStopRecord').style.display = 'inline-block';
+                showToast('Rekaman dimulai', 'success');
+            } else {
+                showToast(data.detail || 'Gagal mulai rekaman', 'error');
+            }
+        } catch (err) {
+            showToast('Gagal memulai rekaman', 'error');
+        }
+    }
+    async function stopRecord() {
+        try {
+            const res = await fetch('/api/recordings/stop', {method: 'POST'});
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('btnRecord').style.display = 'inline-block';
+                document.getElementById('btnStopRecord').style.display = 'none';
+                showToast('Rekaman berhenti', 'success');
+            } else {
+                showToast(data.detail || 'Gagal berhenti rekaman', 'error');
+            }
+        } catch (err) {
+            showToast('Gagal berhenti rekaman', 'error');
+        }
+    }
+    async function detectMotion() {
+        const camId = Object.keys(cameraWindows).find(k => cameraWindows[k].streamUrl.includes(k.toString()));
+        try {
+            const res = await fetch(\`/api/cameras/\${camId || 1}/detect\`, {method: 'POST'});
+            const data = await res.json();
+            if (res.ok) {
+                const type = data.human_detected ? 'manusia' : data.vehicle_detected ? 'kendaraan' : data.motion_detected ? 'gerakan' : 'tidak ada';
+                showToast(\`Deteksi: \${type}\`, (data.human_detected || data.vehicle_detected || data.motion_detected) ? 'warning' : 'info');
+            } else {
+                showToast('Gagal deteksi', 'error');
+            }
+        } catch (err) {
+            showToast('Gagal deteksi', 'error');
+        }
+    }
+    async function logout() {
+        await fetch('/api/auth/logout', {method: 'POST'});
+        document.cookie = 'auth_token=; path=/; max-age=0';
+        window.location.href = '/';
+    }
+    </script>
+</body>
+</html>

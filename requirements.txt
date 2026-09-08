@@ -1,0 +1,70 @@
+# CCTV Guardian - Python Dependencies
+# ============================================
+
+# FastAPI web framework
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+
+# Database ORM
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+
+# Database driver
+# For SQLite: pysqlite3 is not needed (built-in)
+# For PostgreSQL: uncomment below
+# psycopg2-binary>=2.9.0
+# For MySQL: uncomment below
+# mysqlclient>=2.1.0
+
+# Authentication
+python-multipart>=0.0.6
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+pyjwt>=2.8.0
+
+# Video/Stream processing
+opencv-python-headless>=4.8.0
+
+# Image processing
+Pillow>=10.0.0
+
+# AI/ML (Human Detection with YOLO)
+ultralytics>=8.0.0
+
+# Background tasks / scheduling
+APScheduler>=3.10.0
+
+# File handling
+aiofiles>=23.2.0
+
+# HTTP requests (untuk integration dengan layanan eksternal)
+requests>=2.31.0
+
+# Untuk Cloud Storage (pilih sesuai kebutuhan)
+# Google Drive
+# google-api-python-client>=2.90.0
+# google-auth-httplib2>=0.1.0
+# google-auth-oauthlib>=1.0.0
+
+# Wasabi / S3-compatible storage
+# boto3>=1.33.0
+
+# MinIO (self-hosted S3-compatible)
+# minio>=7.2.0
+
+# Nextcloud (WebDAV)
+# python-webdav-client>=3.0.0
+
+# Telegram Bot (untuk alert)
+# python-telegram-bot>=20.0
+
+# Email (untuk alert)
+# aiosmtplib>=3.0.0
+
+# Monitoring & logging
+prometheus-client>=0.17.0
+
+# Development (opsional, untuk testing)
+# pytest>=7.4.0
+# pytest-asyncio>=0.21.0
+# httpx>=0.24.0

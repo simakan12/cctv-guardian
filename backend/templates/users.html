@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengguna - CCTV Guardian</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo"><span class="logo-icon">📹</span><span class="logo-text">CCTV Guardian</span></div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item"><span class="nav-icon">🏠</span><span class="nav-text">Dashboard</span></a>
+                <a href="/cameras" class="nav-item"><span class="nav-icon">📷</span><span class="nav-text">Kamera</span></a>
+                <a href="/recordings" class="nav-item"><span class="nav-icon">🎬</span><span class="nav-text">Rekaman</span></a>
+                <a href="/alerts" class="nav-item"><span class="nav-icon">🔔</span><span class="nav-text">Pemberitahuan</span></a>
+                <a href="/settings" class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-text">Pengaturan</span></a>
+                <a href="/users" class="nav-item active"><span class="nav-icon">👥</span><span class="nav-text">Pengguna</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info"><div class="user-avatar">👤</div>
+                <div class="user-details"><div class="user-name">Admin</div><div class="user-role">Administrator</div></div></div>
+                <button class="btn-logout" onclick="logout()">Keluar</button>
+            </div>
+        </aside>
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left"><h1>Pengguna</h1><span class="breadcrumb">Beranda / Pengguna</span></div>
+            </header>
+            <div class="content">
+                <div class="section-header-row">
+                    <h2>Daftar Pengguna</h2>
+                    <button class="btn btn-primary" onclick="showAddUserModal()">+ Tambah Pengguna</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead><tr>
+                            <th>ID</th><th>Username</th><th>Nama Lengkap</th><th>Email</th>
+                            <th>Role</th><th>Status</th><th>Action</th>
+                        </tr></thead>
+                        <tbody id="usersBody"><tr><td colspan="7" class="empty-row">Memuat...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+    <div id="userModal" class="modal" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Tambah Pengguna</h3>
+                <button class="modal-close" onclick="closeUserModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm" class="form">
+                    <input type="hidden" id="usrId">
+                    <div class="form-group"><label>Username</label><input type="text" id="usrUsername" required placeholder="username"></div>
+                    <div class="form-group"><label>Password</label><input type="password" id="usrPassword" required placeholder="Minimum 6 karakter"><div class="form-hint">Masukkan jika mengubah password</div></div>
+                    <div class="form-group"><label>Nama Lengkap</label><input type="text" id="usrFullName" placeholder="Nama lengkap pengguna"></div>
+                    <div class="form-group"><label>Email</label><input type="email" id="usrEmail" placeholder="email@example.com"></div>
+                    <div class="form-group"><label>Role</label><select id="usrRole" class="form-select"><option value="admin">Administrator</option><option value="viewer">Viewer (Lihat Only)</option></select></div>
+                    <div class="form-group"><label>Status Aktif</label><label class="toggle-switch-label"><input type="checkbox" id="usrActive" checked><span class="toggle-switch"></span></label></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeUserModal()">Batal</button>
+                <button class="btn btn-primary" onclick="saveUser()">Simpan</button>
+            </div>
+        </div>
+    </div>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="/static/js/app.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        await checkAuth();
+        loadUsers();
+    });
+    async function loadUsers() {
+        const tbody = document.getElementById('usersBody');
+        try {
+            const res = await fetch('/api/users');
+            const users = await res.json();
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-row">Belum ada pengguna</td></tr>';
+                return;
+            }
+            tbody.innerHTML = users.map(u => {
+                const roleClass = u.role;
+                const statusClass = u.is_active ? 'status-active' : 'status-inactive';
+                const statusText = u.is_active ? '● Aktif' : '○ Nonaktif';
+                return `<tr>
+                    <td>${u.id}</td>
+                    <td><strong>${u.username}</strong></td>
+                    <td>${u.full_name || '-'}</td>
+                    <td>${u.email || '-'}</td>
+                    <td><span class="role-badge ${roleClass}">${u.role}</span></td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="editUser(${u.id})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})" ${currentUserId===u.id ? 'disabled' : ''}>Hapus</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-row">Gagal memuat data pengguna</td></tr>';
+            showToast('Gagal memuat pengguna', 'error');
+        }
+    }
+    function showAddUserModal() {
+        document.getElementById('modalTitle').textContent = 'Tambah Pengguna';
+        document.getElementById('userForm').reset();
+        document.getElementById('usrId').value = '';
+        document.getElementById('userModal').style.display = 'flex';
+    }
+    async function editUser(id) {
+        try {
+            const res = await fetch(`/api/users/${id}`);
+            const u = await res.json();
+            document.getElementById('modalTitle').textContent = 'Edit Pengguna';
+            document.getElementById('usrId').value = u.id;
+            document.getElementById('usrUsername').value = u.username;
+            document.getElementById('usrFullName').value = u.full_name || '';
+            document.getElementById('usrEmail').value = u.email || '';
+            document.getElementById('usrRole').value = u.role;
+            document.getElementById('usrActive').checked = u.is_active;
+            document.getElementById('userModal').style.display = 'flex';
+        } catch (err) { showToast('Gagal memuat data pengguna', 'error'); }
+    }
+    function closeUserModal() {
+        document.getElementById('userModal').style.display = 'none';
+    }
+    async function saveUser() {
+        const data = {
+            username: document.getElementById('usrUsername').value,
+            password: document.getElementById('usrPassword').value,
+            full_name: document.getElementById('usrFullName').value,
+            email: document.getElementById('usrEmail').value,
+            role: document.getElementById('usrRole').value,
+            is_active: document.getElementById('usrActive').checked
+        };
+        const id = document.getElementById('usrId').value;
+        try {
+            const url = id ? `/api/users/${id}` : '/api/users';
+            const method = id ? 'PUT' : 'POST';
+            const res = await fetch(url, {
+                method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const result = await res.json();
+            if (res.ok) {
+                showToast(id ? 'Pengguna berhasil diperbarui' : 'Pengguna berhasil ditambahkan', 'success');
+                closeUserModal();
+                loadUsers();
+            } else {
+                showToast(result.detail || 'Gagal menyimpan pengguna', 'error');
+            }
+        } catch (err) { showToast('Gagal menyimpan pengguna', 'error'); }
+    }
+    async function deleteUser(id) {
+        if (!confirm('Hapus pengguna ini? Tindakan ini tidak dapat dibatalkan.')) return;
+        try {
+            const res = await fetch(`/api/users/${id}`, {method:'DELETE'});
+            if (res.ok) { showToast('Pengguna berhasil dihapus', 'success'); loadUsers(); }
+            else showToast('Gagal menghapus pengguna', 'error');
+        } catch (err) { showToast('Gagal menghapus pengguna', 'error'); }
+    }
+    async function logout() {
+        await fetch('/api/auth/logout', {method:'POST'});
+        document.cookie = 'auth_token=; path=/; max-age=0';
+        window.location.href = '/';
+    }
+    </script>
+</body>
+</html>
